@@ -15,7 +15,7 @@ pub async fn get_user(pool: &PgPool, email: &str) -> Result<User, AppError> {
     .await
     .map_err(|e| {
         AppError::new(
-            "Insert user error.".to_string(),
+            "Get user error.".to_string(),
             AppErrorType::DatabaseError(e),
         )
     })
