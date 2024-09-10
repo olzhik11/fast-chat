@@ -10,7 +10,6 @@ use chrono;
 use cookie;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use tracing::info;
 use uuid::Uuid;
 
 use crate::{
@@ -107,7 +106,6 @@ impl FromRequestParts<AppState> for Claims {
     ) -> Result<Self, Self::Rejection> {
         match parts.extract::<TypedHeader<Cookie>>().await {
             Ok(TypedHeader(cookie)) => {
-                info!("{:?}", cookie);
                 if let Some(token) = cookie.get("auth_token") {
                     decode_token(token)
                 } else {

@@ -17,6 +17,7 @@ use crate::api::auth::{sign_in, sign_up, who_am_i};
 use crate::api::rooms::{create_room, get_rooms};
 use crate::api::users::update_user;
 use crate::configuration::RedisWorkerConfig;
+use crate::db::collect_rooms;
 use crate::errors::AppError;
 use crate::service::worker::RedisWorker;
 use crate::ws::ws::ws_handler;
@@ -29,15 +30,19 @@ use axum::{
 pub struct AppState {
     pub pool: PgPool,
     pub redis: ConnectionManager,
-    pub chats: Arc<Mutex<HashMap<Uuid, broadcast::Sender<Vec<u8>>>>>,
+    pub rooms: Arc<Mutex<HashMap<Uuid, broadcast::Sender<Vec<u8>>>>>,
 }
 
 impl AppState {
-    pub fn initialize(pool: PgPool, redis: ConnectionManager) -> Result<Self, AppError> {
+    pub fn new(
+        pool: PgPool,
+        redis: ConnectionManager,
+        rooms: HashMap<Uuid, broadcast::Sender<Vec<u8>>>,
+    ) -> Result<Self, AppError> {
         Ok(Self {
             pool,
             redis,
-            chats: Arc::new(Mutex::new(HashMap::default())),
+            rooms: Arc::new(Mutex::new(rooms)),
         })
     }
 }
@@ -47,8 +52,10 @@ pub async fn run(
     db_pool: PgPool,
     redis: ConnectionManager,
     redis_worker_config: RedisWorkerConfig,
-) {
-    let app_state = AppState::initialize(db_pool.clone(), redis.clone())
+) -> Result<(), AppError> {
+    let rooms = collect_rooms(&db_pool.clone()).await?;
+
+    let app_state = AppState::new(db_pool.clone(), redis.clone(), rooms)
         .expect("Failed to initialize app state.");
 
     let api_routes = Router::new()
@@ -107,5 +114,5 @@ pub async fn run(
 
     join!(http, background);
 
-    ()
+    Ok(())
 }

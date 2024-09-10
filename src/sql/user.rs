@@ -65,7 +65,7 @@ struct GetUserInput {
 
 #[instrument(name = "Getting a user.", skip(pool), level = Level::INFO)]
 pub async fn get_user(pool: &PgPool, email: &str) -> Result<User, AppError> {
-    sqlx::query_as(
+    sqlx::query_as::<_, User>(
         "SELECT id, email, name, password, created_at, updated_at FROM users WHERE email = $1",
     )
     .bind(email)
@@ -82,7 +82,7 @@ pub async fn get_user(pool: &PgPool, email: &str) -> Result<User, AppError> {
 // skip user, context but include user.name
 #[instrument(name = "Creating a user.", skip(pool, user), fields(user.name = %user.name), level = Level::INFO)]
 pub async fn insert_user(pool: &PgPool, user: User) -> Result<User, AppError> {
-    sqlx::query_as(
+    sqlx::query_as::<_, User>(
         r#"
         INSERT INTO users (id, email, name, password, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6)

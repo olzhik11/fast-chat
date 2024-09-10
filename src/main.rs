@@ -37,11 +37,11 @@ async fn main() -> Result<(), AppError> {
     )
     .await?;
 
-    Ok(run(
+    run(
         address,
         db_connection,
         redis_connection_manager,
         configuration.redis.redis_worker_config,
     )
-    .await)
+    .await
 }
