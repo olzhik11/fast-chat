@@ -50,7 +50,7 @@ pub async fn create_room(
         ..Default::default()
     };
 
-    let new_room: Room = sqlx::query_as(
+    let new_room = sqlx::query_as::<_, Room>(
         r#"
         INSERT INTO rooms (id, name, description, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5)
@@ -100,7 +100,7 @@ pub async fn create_room(
 
 #[instrument(name = "Getting rooms.", skip(pool))]
 pub async fn get_rooms(pool: &PgPool, id: Uuid) -> Result<Vec<Room>, AppError> {
-    sqlx::query_as(
+    sqlx::query_as::<_, Room>(
         r#"
         SELECT r.id, r.name, r.description, r.created_at, r.updated_at
         FROM rooms r INNER JOIN room_users ru

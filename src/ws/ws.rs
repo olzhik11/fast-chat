@@ -12,16 +12,14 @@ use axum::{
     },
     response::Response,
 };
-use axum_macros::debug_handler;
 use futures_util::stream::StreamExt;
 use futures_util::SinkExt;
+use log::debug;
 use redis::aio::ConnectionManager;
 use std::ops::ControlFlow;
 use tokio::sync::broadcast::Sender;
-use tracing::info;
 use uuid::Uuid;
 
-#[debug_handler]
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     _claims: Claims,
@@ -31,19 +29,33 @@ pub async fn ws_handler(
     Ok(ws.on_upgrade(move |socket| handle_socket(socket, state, room)))
 }
 
-pub async fn handle_socket(socket: WebSocket, state: AppState, chat: Uuid) {
+pub async fn handle_socket(socket: WebSocket, state: AppState, room: Uuid) {
     let (mut sender, mut receiver) = socket.split();
 
     let tx = {
-        let chats = state.chats.lock().expect("Failed to lock for chats.");
-        match chats.get(&chat) {
-            Some(chat) => chat.clone(),
-            None => {
-                let _ = sender.send(Message::Binary(
-                    serde_json::to_vec("No room exists with such id").unwrap(),
-                ));
-                return;
+        if let Ok(rooms) = state.rooms.lock() {
+            match rooms.get(&room) {
+                Some(room) => room.clone(),
+                None => {
+                    tokio::spawn(async move {
+                        let _ = sender
+                            .send(Message::Binary(
+                                serde_json::to_vec("No room exists with such id").unwrap(),
+                            ))
+                            .await;
+                    });
+                    return;
+                }
             }
+        } else {
+            tokio::spawn(async move {
+                let _ = sender
+                    .send(Message::Binary(
+                        serde_json::to_vec("Failed to lock for rooms").unwrap(),
+                    ))
+                    .await;
+            });
+            return;
         }
     };
 
@@ -131,8 +143,7 @@ fn process_message(
             SocketMessage::Close => return ControlFlow::Break(()),
         }
     } else {
-        info!("Couldn't deserialize message");
-        info!("{:?}", msg);
+        debug!("Couldn't deserialize message {:?}", msg);
     }
 
     ControlFlow::Continue(())
