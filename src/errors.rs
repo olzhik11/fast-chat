@@ -5,7 +5,6 @@ use axum::{
 };
 use bcrypt::BcryptError;
 use config::ConfigError;
-use juniper::{graphql_value, FieldError, IntoFieldError};
 use redis::RedisError;
 use serde_json::json;
 use sqlx;
@@ -165,17 +164,5 @@ impl IntoResponse for AppError {
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.message())
-    }
-}
-
-impl IntoFieldError for AppError {
-    fn into_field_error(self) -> FieldError {
-        // improve extensions, add path, etc. for gql
-        FieldError::new(
-            self.message(),
-            graphql_value!({
-                "type": self.error_type.to_string()
-            }),
-        )
     }
 }

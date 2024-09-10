@@ -8,9 +8,6 @@ edition = "2021"
 path = "src/lib.rs"
 
 [dependencies]
-juniper = { version = "0.16.0", features = [
-    "chrono",
-] }
 serde = { version = "1.0.197", features = ["derive"] }
 tokio = { version = "1.36.0", features = ["full"] }
 sqlx = { version = "0.7.3", features = [

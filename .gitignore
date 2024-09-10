@@ -4,3 +4,4 @@ certificates
 .env
 configuration.yaml
 target
+Cargo.lock

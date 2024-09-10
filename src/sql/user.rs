@@ -2,7 +2,7 @@ use crate::errors::{AppError, AppErrorType};
 use sqlx::PgPool;
 use tracing::{instrument, Level};
 
-use crate::crypt::{hash::hash_password};
+use crate::crypt::hash::hash_password;
 use derivative::{self, Derivative};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
@@ -35,7 +35,6 @@ pub struct User {
     #[derivative(Default(value = "chrono::Utc::now()"))]
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
-
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct UserInput {
