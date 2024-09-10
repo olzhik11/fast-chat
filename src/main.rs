@@ -1,9 +1,11 @@
+use std::net::SocketAddr;
+
 use secrecy::ExposeSecret;
 
 use fast_chat::{
     configuration::get_configuration,
     db::{init_db_connection, init_redis_connection},
-    errors::{AppError, AppErrorType},
+    errors::AppError,
     startup::run,
     telemetry::init_subscriber,
 };
@@ -12,7 +14,7 @@ use fast_chat::{
 async fn main() -> Result<(), AppError> {
     // config init
     let configuration = get_configuration().expect("Failed to read configuration.");
-    let address = format!("127.0.0.1:{}", configuration.application_port);
+    let address = SocketAddr::from(([127, 0, 0, 1], configuration.application_port));
 
     // tracing logger init
     init_subscriber()?;
@@ -35,10 +37,11 @@ async fn main() -> Result<(), AppError> {
     )
     .await?;
 
-    // server init
-    let listener = tokio::net::TcpListener::bind(address)
-        .await
-        .map_err(|e| AppError::new(e.to_string(), AppErrorType::InternalServerError))?;
-
-    Ok(run(listener, db_connection, redis_connection_manager, configuration.redis.redis_worker_config).await)
+    Ok(run(
+        address,
+        db_connection,
+        redis_connection_manager,
+        configuration.redis.redis_worker_config,
+    )
+    .await)
 }

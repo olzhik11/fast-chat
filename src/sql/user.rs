@@ -1,9 +1,67 @@
-use crate::{
-    errors::{AppError, AppErrorType},
-    graphql::user::schema::{User, UserUpdate},
-};
+use crate::errors::{AppError, AppErrorType};
 use sqlx::PgPool;
 use tracing::{instrument, Level};
+
+use crate::crypt::hash::hash_password;
+use derivative::{self, Derivative};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use unicode_segmentation::UnicodeSegmentation;
+use uuid::Uuid;
+use validator::validate_email;
+
+#[derive(Serialize, Deserialize)]
+pub struct SessionUser<'a> {
+    pub id: Uuid,
+    pub email: &'a str,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserUpdate {
+    pub id: Uuid,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, FromRow, Derivative)]
+#[derivative(Default)]
+pub struct User {
+    #[derivative(Default(value = "Uuid::new_v4()"))]
+    pub id: Uuid,
+    pub name: String,
+    pub email: String,
+    pub password: String,
+    #[derivative(Default(value = "chrono::Utc::now()"))]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    #[derivative(Default(value = "chrono::Utc::now()"))]
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct UserInput {
+    pub name: String,
+    pub email: String,
+    pub password: String,
+}
+
+impl UserInput {
+    pub fn validate_user_input(self) -> Result<Self, AppError> {
+        let name = UserName::parse(self.name)?;
+        let email = UserEmail::parse(self.email)?;
+
+        let hash = hash_password(self.password).expect("Failed to hash password.");
+
+        Ok(UserInput {
+            name: name.inner(),
+            email: email.inner(),
+            password: hash,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct GetUserInput {
+    email: String,
+}
 
 #[instrument(name = "Getting a user.", skip(pool), level = Level::INFO)]
 pub async fn get_user(pool: &PgPool, email: &str) -> Result<User, AppError> {
@@ -67,4 +125,60 @@ pub async fn update_user(pool: &PgPool, user: UserUpdate) -> Result<User, AppErr
             AppErrorType::DatabaseError(e),
         )
     })
+}
+
+pub struct UserName(String);
+
+pub struct UserEmail(String);
+
+impl AsRef<str> for UserEmail {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl UserEmail {
+    pub fn parse(email: String) -> Result<UserEmail, AppError> {
+        if validate_email(&email) {
+            Ok(Self(email))
+        } else {
+            Err(AppError::new(
+                "Failed to parse email.".to_string(),
+                AppErrorType::ValidationError("Failed to parse email.".to_string()),
+            ))
+        }
+    }
+
+    pub fn inner(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for UserName {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl UserName {
+    pub fn parse(s: String) -> Result<UserName, AppError> {
+        let is_empty_or_whitespace = s.trim().is_empty();
+
+        let is_too_long = s.graphemes(true).count() > 256;
+
+        let forbidden_characters = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
+        let contains_forbidden_characters = s.chars().any(|g| forbidden_characters.contains(&g));
+        if is_empty_or_whitespace || is_too_long || contains_forbidden_characters {
+            Err(AppError::new(
+                format!("{} is not a valid subscriber name.", s),
+                AppErrorType::ValidationError(format!("{} is not a valid subscriber name.", s)),
+            ))
+        } else {
+            Ok(Self(s))
+        }
+    }
+
+    pub fn inner(self) -> String {
+        self.0
+    }
 }

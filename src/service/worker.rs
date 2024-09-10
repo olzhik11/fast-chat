@@ -1,13 +1,10 @@
-
-use std::time::Duration;
+use crate::configuration::{RedisEventConfig, RedisWorkerConfig};
 use redis::aio::ConnectionManager;
 use sqlx::PgPool;
+use std::time::Duration;
 use tokio::time;
-use crate::configuration::{RedisEventConfig, RedisWorkerConfig};
 
 use super::stream::EventRedisStream;
-
-
 
 pub struct RedisWorker {
     redis_connection_manager: ConnectionManager,
@@ -16,7 +13,11 @@ pub struct RedisWorker {
 }
 
 impl RedisWorker {
-    pub fn new(redis_connection_manager: ConnectionManager, db_pool: PgPool, config: RedisWorkerConfig) -> Self {
+    pub fn new(
+        redis_connection_manager: ConnectionManager,
+        db_pool: PgPool,
+        config: RedisWorkerConfig,
+    ) -> Self {
         RedisWorker {
             redis_connection_manager,
             db_pool,
@@ -35,7 +36,8 @@ impl RedisWorker {
                     if let Ok(events) = stream.read_stream().await {
                         for event in events {
                             let stream_clone = stream.clone();
-                            let _pinned_boxed_future = stream_clone.process_event(&pg_pool, event).await;
+                            let _pinned_boxed_future =
+                                stream_clone.process_event(&pg_pool, event).await;
                         }
                     }
                 }
