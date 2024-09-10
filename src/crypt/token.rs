@@ -1,27 +1,27 @@
 use axum::{
     async_trait,
     extract::FromRequestParts,
-    http::request::Parts,
-    http::{HeaderName, HeaderValue},
+    http::{header, request::Parts, HeaderName, HeaderValue},
     RequestPartsExt,
 };
-use axum_extra::{
-    headers::{authorization::Bearer, Authorization},
-    TypedHeader,
-};
+
+use axum_extra::{headers::Cookie, TypedHeader};
 use chrono;
+use cookie;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use tracing::info;
+use uuid::Uuid;
 
 use crate::{
     errors::{AppError, AppErrorType},
-    graphql::user::schema::SessionUser,
+    sql::user::SessionUser,
     startup::AppState,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: String,
+    pub sub: Uuid,
     pub exp: i64,
     pub iat: i64,
     pub email: String,
@@ -82,10 +82,18 @@ pub fn verify_token(token: Option<&str>) -> Result<Claims, AppError> {
 }
 
 pub fn get_auth_header_pair(token: String) -> (HeaderName, HeaderValue) {
-    let bt = format!("Bearer {token}");
+    let cookie = cookie::Cookie::build(("auth_token", token))
+        .http_only(true)
+        .same_site(cookie::SameSite::Lax)
+        .secure(true)
+        .path("/")
+        .build();
+
+    let cookie_str = cookie.to_string();
+
     (
-        HeaderName::from_lowercase(b"authorization").unwrap(),
-        HeaderValue::from_str(&bt).unwrap(),
+        header::SET_COOKIE,
+        HeaderValue::from_str(&cookie_str).unwrap(),
     )
 }
 
@@ -97,8 +105,20 @@ impl FromRequestParts<AppState> for Claims {
         parts: &mut Parts,
         _state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        match parts.extract::<TypedHeader<Authorization<Bearer>>>().await {
-            Ok(TypedHeader(Authorization(bearer))) => decode_token(bearer.token()),
+        match parts.extract::<TypedHeader<Cookie>>().await {
+            Ok(TypedHeader(cookie)) => {
+                info!("{:?}", cookie);
+                if let Some(token) = cookie.get("auth_token") {
+                    decode_token(token)
+                } else {
+                    Err(AppError::new(
+                        "No auth_token cookie is present".to_string(),
+                        AppErrorType::AuthorizationError(
+                            "No auth_token cookie is present".to_string(),
+                        ),
+                    ))
+                }
+            }
             Err(e) => Err(AppError::new(
                 e.to_string(),
                 AppErrorType::AuthorizationError(format!(

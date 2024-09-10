@@ -171,8 +171,11 @@ impl fmt::Display for AppError {
 impl IntoFieldError for AppError {
     fn into_field_error(self) -> FieldError {
         // improve extensions, add path, etc. for gql
-        FieldError::new(self.message(), graphql_value!({
-            "type": self.error_type.to_string()
-        }))
+        FieldError::new(
+            self.message(),
+            graphql_value!({
+                "type": self.error_type.to_string()
+            }),
+        )
     }
 }

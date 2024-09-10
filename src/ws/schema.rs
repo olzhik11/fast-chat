@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
 use uuid::Uuid;
 
-use crate::graphql::user::schema::User;
+use crate::sql::user::User;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum SocketMessage {

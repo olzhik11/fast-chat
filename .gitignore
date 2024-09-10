@@ -1,5 +1,6 @@
 target
 keys
+certificates
 .env
 configuration.yaml
 target

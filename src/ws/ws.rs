@@ -1,4 +1,7 @@
-use crate::service::stream::{AsyncEvent, EventRedisStream, ASYNC_EVENT_DELETE, ASYNC_EVENT_MARK_AS_SEEN, ASYNC_EVENT_SEND, ASYNC_EVENT_UPDATE};
+use crate::service::stream::{
+    AsyncEvent, EventRedisStream, ASYNC_EVENT_DELETE, ASYNC_EVENT_MARK_AS_SEEN, ASYNC_EVENT_SEND,
+    ASYNC_EVENT_UPDATE,
+};
 use crate::ws::schema::SocketMessage;
 use crate::{crypt::token::Claims, errors::AppError, startup::AppState};
 use axum::extract::ws::Message;
@@ -14,7 +17,7 @@ use futures_util::stream::StreamExt;
 use futures_util::SinkExt;
 use redis::aio::ConnectionManager;
 use std::ops::ControlFlow;
-use tokio::sync::broadcast::{self, Sender};
+use tokio::sync::broadcast::Sender;
 use tracing::info;
 use uuid::Uuid;
 
@@ -32,18 +35,21 @@ pub async fn handle_socket(socket: WebSocket, state: AppState, chat: Uuid) {
     let (mut sender, mut receiver) = socket.split();
 
     let tx = {
-        let mut chats = state.chats.lock().expect("Failed to lock for chats.");
+        let chats = state.chats.lock().expect("Failed to lock for chats.");
         match chats.get(&chat) {
             Some(chat) => chat.clone(),
             None => {
-                let (tx, _rx) = broadcast::channel(100);
-                chats.insert(chat.clone(), tx.clone());
-                tx
+                let _ = sender.send(Message::Binary(
+                    serde_json::to_vec("No room exists with such id").unwrap(),
+                ));
+                return;
             }
         }
     };
 
     let mut rx = tx.subscribe();
+
+    let _ = tx.send(serde_json::to_vec("Connected!").unwrap());
 
     let mut send_task = tokio::spawn(async move {
         while let Ok(message) = rx.recv().await {
@@ -78,12 +84,9 @@ fn process_message(
                 let _ = tx.send(serde_json::to_vec(&SocketMessage::Send(message.clone())).unwrap());
 
                 tokio::spawn(async move {
-                    EventRedisStream::new(
-                        ASYNC_EVENT_SEND,
-                        redis_connection_manager,
-                    )
-                    .add_to_stream(AsyncEvent::Send(message.clone()))
-                    .await
+                    EventRedisStream::new(ASYNC_EVENT_SEND, redis_connection_manager)
+                        .add_to_stream(AsyncEvent::Send(message.clone()))
+                        .await
                 });
             }
             SocketMessage::Seen(ids) => {
@@ -91,12 +94,9 @@ fn process_message(
                 // let _ tx.send(serde_json::to_vec())
 
                 tokio::spawn(async move {
-                    EventRedisStream::new(
-                        ASYNC_EVENT_MARK_AS_SEEN,
-                        redis_connection_manager,
-                    )
-                    .add_to_stream(AsyncEvent::MarkAsSeen(ids.clone()))
-                    .await
+                    EventRedisStream::new(ASYNC_EVENT_MARK_AS_SEEN, redis_connection_manager)
+                        .add_to_stream(AsyncEvent::MarkAsSeen(ids.clone()))
+                        .await
                 });
             }
             SocketMessage::Update(message) => {
@@ -104,12 +104,9 @@ fn process_message(
                     tx.send(serde_json::to_vec(&SocketMessage::Update(message.clone())).unwrap());
 
                 tokio::spawn(async move {
-                    EventRedisStream::new(
-                        ASYNC_EVENT_UPDATE,
-                        redis_connection_manager,
-                    )
-                    .add_to_stream(AsyncEvent::Update(message.clone()))
-                    .await
+                    EventRedisStream::new(ASYNC_EVENT_UPDATE, redis_connection_manager)
+                        .add_to_stream(AsyncEvent::Update(message.clone()))
+                        .await
                 });
             }
             SocketMessage::Delete(ids) => {
@@ -135,6 +132,7 @@ fn process_message(
         }
     } else {
         info!("Couldn't deserialize message");
+        info!("{:?}", msg);
     }
 
     ControlFlow::Continue(())

@@ -30,7 +30,7 @@ pub struct RedisSettings {
 pub struct RedisEventConfig {
     pub key: String,
     pub interval: u64,
-} 
+}
 
 #[derive(serde::Deserialize)]
 pub struct RedisWorkerConfig {
