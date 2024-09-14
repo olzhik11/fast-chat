@@ -1,13 +1,14 @@
+use std::fmt;
+
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
 use uuid::Uuid;
 
-use crate::sql::user::User;
-
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type")]
 pub enum SocketMessage {
-    Send(SocketMessageContent),
+    Send(SocketMessageSendContent),
     Update(SocketMessageContent),
     Delete(Vec<Uuid>),
     Seen(Vec<Uuid>),
@@ -18,11 +19,18 @@ pub enum SocketMessage {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Type, Default)]
+#[repr(i16)]
 pub enum MessageStatus {
     #[default]
     NotSent = 1,
     Sent = 2,
     Seen = 3,
+}
+
+#[derive(Serialize, Deserialize, Derivative, Debug, Clone)]
+pub struct Author {
+    pub id: Uuid,
+    pub name: String,
 }
 
 /// MessageContent \
@@ -31,16 +39,51 @@ pub enum MessageStatus {
 /// `author` - author (creator, sender) of the message \
 /// `room_id` - Uuid of the room where message has been sent \
 /// `status` - status of message, whether its been sent or seen by the users
-#[derive(Serialize, Deserialize, Debug, Clone, FromRow, Derivative)]
-#[derivative(Default)]
+///
+///
+
+#[derive(Serialize, Deserialize, Debug, Clone, FromRow)]
 pub struct SocketMessageContent {
-    #[derivative(Default(value = "Uuid::new_v4()"))]
     pub id: Uuid,
     pub content: String,
-    #[sqlx(flatten)]
-    pub author: User,
+    pub author: Author,
     pub room: Uuid,
     pub status: MessageStatus,
-    #[derivative(Default(value = "chrono::Utc::now()"))]
     pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, FromRow, Derivative)]
+pub struct SocketMessageSendContent {
+    pub room: Uuid,
+    pub content: String,
+    pub author: Author,
+}
+
+impl From<SocketMessageSendContent> for SocketMessageContent {
+    fn from(value: SocketMessageSendContent) -> Self {
+        SocketMessageContent {
+            id: Uuid::new_v4(),
+            content: value.content,
+            author: value.author,
+            room: value.room,
+            status: MessageStatus::Sent,
+            created_at: chrono::Utc::now(),
+        }
+    }
+}
+
+impl fmt::Display for SocketMessageSendContent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Room: {}, Content: {}", self.room, self.content)
+    }
+}
+
+impl fmt::Display for SocketMessageContent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ID: {}, Content: {}, Room: {}, Status: {:?}, Created at: {}",
+            self.id, self.content, self.room, self.status, self.created_at
+        )
+    }
 }

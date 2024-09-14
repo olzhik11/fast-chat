@@ -4,14 +4,16 @@ use uuid::Uuid;
 
 use crate::{
     errors::{AppError, AppErrorType},
-    ws::schema::{MessageStatus, SocketMessageContent},
+    ws::schema::{MessageStatus, SocketMessageContent, SocketMessageSendContent},
 };
 
 #[instrument(name = "Send message", skip(pool), level = Level::INFO)]
 pub async fn insert_message(
     pool: &PgPool,
-    message: SocketMessageContent,
+    message: SocketMessageSendContent,
 ) -> Result<PgQueryResult, AppError> {
+    let message = SocketMessageContent::from(message);
+
     sqlx::query(
         r#"
         INSERT INTO messages (id, content, author, room, status, created_at)
@@ -26,12 +28,7 @@ pub async fn insert_message(
     .bind(message.created_at)
     .execute(pool)
     .await
-    .map_err(|e| {
-        AppError::new(
-            "Insert message error.".to_string(),
-            AppErrorType::DatabaseError(e),
-        )
-    })
+    .map_err(|e| AppError::new(e.to_string(), AppErrorType::DatabaseError(e)))
 }
 
 #[instrument(name = "Marking messages as seen.", skip(pool), level = Level::INFO)]

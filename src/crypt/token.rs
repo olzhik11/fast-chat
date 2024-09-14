@@ -7,7 +7,7 @@ use axum::{
 
 use axum_extra::{headers::Cookie, TypedHeader};
 use chrono;
-use cookie;
+use cookie::{self, time};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -83,9 +83,11 @@ pub fn verify_token(token: Option<&str>) -> Result<Claims, AppError> {
 pub fn get_auth_header_pair(token: String) -> (HeaderName, HeaderValue) {
     let cookie = cookie::Cookie::build(("auth_token", token))
         .http_only(true)
-        .same_site(cookie::SameSite::Lax)
+        .same_site(cookie::SameSite::None)
         .secure(true)
         .path("/")
+        .max_age(time::Duration::days(7))
+        .expires(time::OffsetDateTime::now_utc() + time::Duration::days(7))
         .build();
 
     let cookie_str = cookie.to_string();

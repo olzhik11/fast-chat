@@ -66,7 +66,7 @@ pub async fn run(
         .route("/auth/signup", post(sign_up));
 
     let cors_layer = CorsLayer::new()
-        .allow_origin(AllowOrigin::list(vec!["http://127.0.0.1:8080"
+        .allow_origin(AllowOrigin::list(vec!["https://localhost:3000"
             .parse()
             .unwrap()]))
         .allow_methods(AllowMethods::list(vec![
@@ -109,8 +109,9 @@ pub async fn run(
             .unwrap();
     };
 
-    let background =
-        async { RedisWorker::new(redis.clone(), db_pool.clone(), redis_worker_config) };
+    let background = async {
+        RedisWorker::new(redis.clone(), db_pool.clone(), redis_worker_config).spawn_worker()
+    };
 
     join!(http, background);
 
