@@ -22,14 +22,14 @@ use uuid::Uuid;
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
-    _claims: Claims,
+    claims: Claims,
     State(state): State<AppState>,
     Path(room): Path<Uuid>,
 ) -> Result<Response, AppError> {
-    Ok(ws.on_upgrade(move |socket| handle_socket(socket, state, room)))
+    Ok(ws.on_upgrade(move |socket| handle_socket(socket, state, claims, room)))
 }
 
-pub async fn handle_socket(socket: WebSocket, state: AppState, room: Uuid) {
+pub async fn handle_socket(socket: WebSocket, state: AppState, claims: Claims, room: Uuid) {
     let (mut sender, mut receiver) = socket.split();
 
     let tx = {
@@ -73,7 +73,7 @@ pub async fn handle_socket(socket: WebSocket, state: AppState, room: Uuid) {
 
     let mut recv_task: tokio::task::JoinHandle<()> = tokio::spawn(async move {
         while let Some(Ok(Message::Binary(message))) = receiver.next().await {
-            if process_message(message, &tx, state.redis.clone()).is_break() {
+            if process_message(message, claims.clone(), &tx, state.redis.clone()).is_break() {
                 return;
             }
         }
@@ -87,6 +87,7 @@ pub async fn handle_socket(socket: WebSocket, state: AppState, room: Uuid) {
 
 fn process_message(
     msg: Vec<u8>,
+    claims: Claims,
     tx: &Sender<Vec<u8>>,
     redis_connection_manager: ConnectionManager,
 ) -> ControlFlow<(), ()> {
@@ -97,7 +98,7 @@ fn process_message(
 
                 tokio::spawn(async move {
                     EventRedisStream::new(ASYNC_EVENT_SEND, redis_connection_manager)
-                        .add_to_stream(AsyncEvent::Send(message.clone()))
+                        .add_to_stream(AsyncEvent::Send(message.clone(), claims.user))
                         .await
                 });
             }

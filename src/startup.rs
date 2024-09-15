@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::api::auth::{sign_in, sign_up, who_am_i};
+use crate::api::messages::get_messages;
 use crate::api::rooms::{create_room, get_rooms};
 use crate::api::users::update_user;
 use crate::configuration::RedisWorkerConfig;
@@ -60,13 +61,14 @@ pub async fn run(
 
     let api_routes = Router::new()
         .route("/rooms", get(get_rooms).post(create_room))
+        .route("/rooms/:id/messages", get(get_messages))
         .route("/users", put(update_user))
         .route("/auth/whoami", get(who_am_i))
         .route("/auth/signin", post(sign_in))
         .route("/auth/signup", post(sign_up));
 
     let cors_layer = CorsLayer::new()
-        .allow_origin(AllowOrigin::list(vec!["http://127.0.0.1:8080"
+        .allow_origin(AllowOrigin::list(vec!["https://localhost:3000"
             .parse()
             .unwrap()]))
         .allow_methods(AllowMethods::list(vec![
@@ -109,8 +111,9 @@ pub async fn run(
             .unwrap();
     };
 
-    let background =
-        async { RedisWorker::new(redis.clone(), db_pool.clone(), redis_worker_config) };
+    let background = async {
+        RedisWorker::new(redis.clone(), db_pool.clone(), redis_worker_config).spawn_worker()
+    };
 
     join!(http, background);
 

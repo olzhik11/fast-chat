@@ -7,14 +7,14 @@ use axum::{
 
 use axum_extra::{headers::Cookie, TypedHeader};
 use chrono;
-use cookie;
+use cookie::{self, time};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
     errors::{AppError, AppErrorType},
-    sql::user::SessionUser,
+    sql::users::QueryUser,
     startup::AppState,
 };
 
@@ -23,19 +23,19 @@ pub struct Claims {
     pub sub: Uuid,
     pub exp: i64,
     pub iat: i64,
-    pub email: String,
+    pub user: QueryUser,
 }
 
 impl Claims {
     // time to live, in minutes
-    pub fn new(session_user: &SessionUser, ttl: i64) -> Self {
+    pub fn new(user: QueryUser, ttl: i64) -> Self {
         let now = chrono::Utc::now();
 
         Self {
-            sub: session_user.id.into(),
+            sub: user.id.into(),
             exp: (now + chrono::Duration::minutes(ttl)).timestamp(),
             iat: now.timestamp(),
-            email: session_user.email.to_string(),
+            user,
         }
     }
 }
@@ -83,9 +83,11 @@ pub fn verify_token(token: Option<&str>) -> Result<Claims, AppError> {
 pub fn get_auth_header_pair(token: String) -> (HeaderName, HeaderValue) {
     let cookie = cookie::Cookie::build(("auth_token", token))
         .http_only(true)
-        .same_site(cookie::SameSite::Lax)
+        .same_site(cookie::SameSite::None)
         .secure(true)
         .path("/")
+        .max_age(time::Duration::days(7))
+        .expires(time::OffsetDateTime::now_utc() + time::Duration::days(7))
         .build();
 
     let cookie_str = cookie.to_string();

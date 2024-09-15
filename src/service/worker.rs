@@ -1,8 +1,10 @@
 use crate::configuration::{RedisEventConfig, RedisWorkerConfig};
+use log::info;
 use redis::aio::ConnectionManager;
 use sqlx::PgPool;
 use std::time::Duration;
 use tokio::time;
+use tracing::error;
 
 use super::stream::EventRedisStream;
 
@@ -30,16 +32,35 @@ impl RedisWorker {
             let mut stream = EventRedisStream::new(&key, self.redis_connection_manager.clone());
             let pg_pool = self.db_pool.clone();
             let mut interval = time::interval(Duration::from_secs(interval));
+
             tokio::spawn(async move {
                 loop {
                     interval.tick().await;
-                    if let Ok(events) = stream.read_stream().await {
-                        for event in events {
-                            let stream_clone = stream.clone();
-                            let _pinned_boxed_future =
-                                stream_clone.process_event(&pg_pool, event).await;
+
+                    let events = match stream.read_stream().await {
+                        Ok(events) => events,
+                        Err(e) => {
+                            error!("Error reading from stream: {:?}", e);
+                            continue; // Skip processing if reading fails
+                        }
+                    };
+
+                    if events.is_empty() {
+                        info!("No events for stream {}", key);
+                        continue; // Skip processing if no events
+                    }
+
+                    let mut cleanup_events = Vec::<String>::new();
+                    for (id, event) in events {
+                        match stream.process_event(&pg_pool, event).await {
+                            Ok(_) => {
+                                cleanup_events.push(id);
+                            }
+                            Err(e) => error!("Error processing event {}", e),
                         }
                     }
+
+                    let _ = stream.delete_events(cleanup_events).await;
                 }
             });
         }
