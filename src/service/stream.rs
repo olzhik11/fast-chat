@@ -12,14 +12,17 @@ use uuid::Uuid;
 
 use crate::{
     errors::{AppError, AppErrorType},
-    sql::message::{delete_messages, insert_message, mark_as_seen, update_message},
-    ws::schema::{SocketMessageContent, SocketMessageSendContent},
+    sql::{
+        messages::{delete_messages, insert_message, mark_as_seen, update_message},
+        users::{self, QueryUser},
+    },
+    ws::schema::{Message, MessageRequest},
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum AsyncEvent {
-    Send(SocketMessageSendContent),
-    Update(SocketMessageContent),
+    Send(MessageRequest, QueryUser),
+    Update(Message),
     Delete(Vec<Uuid>),
     MarkAsSeen(Vec<Uuid>),
 }
@@ -27,7 +30,7 @@ pub enum AsyncEvent {
 impl fmt::Display for AsyncEvent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            AsyncEvent::Send(content) => {
+            AsyncEvent::Send(content, _) => {
                 write!(f, "Send event with content: {}", content)
             }
             AsyncEvent::Update(content) => {
@@ -148,7 +151,7 @@ impl EventRedisStream {
         match event {
             AsyncEvent::MarkAsSeen(ids) => mark_as_seen(db_pool, ids).await,
             AsyncEvent::Delete(ids) => delete_messages(db_pool, ids).await,
-            AsyncEvent::Send(message) => insert_message(db_pool, message).await,
+            AsyncEvent::Send(message, user) => insert_message(db_pool, message, user).await,
             AsyncEvent::Update(message) => {
                 update_message(db_pool, message.id, message.content).await
             }

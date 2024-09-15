@@ -4,15 +4,18 @@ use uuid::Uuid;
 
 use crate::{
     errors::{AppError, AppErrorType},
-    ws::schema::{MessageStatus, SocketMessageContent, SocketMessageSendContent},
+    ws::schema::{Message, MessageRequest, MessageStatus},
 };
+
+use super::users::QueryUser;
 
 #[instrument(name = "Send message", skip(pool), level = Level::INFO)]
 pub async fn insert_message(
     pool: &PgPool,
-    message: SocketMessageSendContent,
+    message: MessageRequest,
+    user: QueryUser,
 ) -> Result<PgQueryResult, AppError> {
-    let message = SocketMessageContent::from(message);
+    let message = Message::new(message, user);
 
     sqlx::query(
         r#"
@@ -52,35 +55,19 @@ pub async fn mark_as_seen(pool: &PgPool, ids: Vec<Uuid>) -> Result<PgQueryResult
     })
 }
 
-#[instrument(name = "Getting a message", skip(pool), level = Level::INFO)]
-pub async fn get_message(pool: &PgPool, id: Uuid) -> Result<PgQueryResult, AppError> {
-    sqlx::query(
-        r#"
-        SELECT * FROM messages m INNER JOIN users u ON m.author = u.id WHERE m.id = $1 LIMIT 1
-        "#,
-    )
-    .bind(id)
-    .execute(pool)
-    .await
-    .map_err(|e| {
-        AppError::new(
-            "Get a message error.".to_string(),
-            AppErrorType::DatabaseError(e),
-        )
-    })
-}
-
 #[instrument(name = "Getting messages", skip(pool), level = Level::INFO)]
-pub async fn get_messages(pool: &PgPool, id: Uuid) -> Result<PgQueryResult, AppError> {
-    sqlx::query(
+pub async fn get_messages(pool: &PgPool, id: Uuid) -> Result<Vec<Message>, AppError> {
+    sqlx::query_as::<_, Message>(
         r#"
-        SELECT * FROM messages
-        WHERE room = $1
-        ORDER BY created_at DESC
+        SELECT m.id, m.content, m.room, m.status, m.created_at, u.id, u.name, u.email, u.created_at, u.updated_at
+        FROM messages m
+        INNER JOIN users u
+        ON m.author = u.id
+        WHERE m.room = $1
         "#,
     )
     .bind(id)
-    .execute(pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| {
         AppError::new(

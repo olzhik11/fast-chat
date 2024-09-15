@@ -5,11 +5,13 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
 use uuid::Uuid;
 
+use crate::sql::users::QueryUser;
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum SocketMessage {
-    Send(SocketMessageSendContent),
-    Update(SocketMessageContent),
+    Send(MessageRequest),
+    Update(Message),
     Delete(Vec<Uuid>),
     Seen(Vec<Uuid>),
     Typing,
@@ -18,53 +20,37 @@ pub enum SocketMessage {
     Close,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Type, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Type)]
 #[repr(i16)]
 pub enum MessageStatus {
-    #[default]
     NotSent = 1,
     Sent = 2,
     Seen = 3,
 }
 
-#[derive(Serialize, Deserialize, Derivative, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, FromRow, Clone)]
 pub struct Author {
     pub id: Uuid,
     pub name: String,
 }
 
-/// MessageContent \
-/// `id` - Uuid of the message \
-/// `content` - content of the message \
-/// `author` - author (creator, sender) of the message \
-/// `room_id` - Uuid of the room where message has been sent \
-/// `status` - status of message, whether its been sent or seen by the users
-///
-///
-
 #[derive(Serialize, Deserialize, Debug, Clone, FromRow)]
-pub struct SocketMessageContent {
+pub struct Message {
     pub id: Uuid,
     pub content: String,
-    pub author: Author,
+    #[sqlx(flatten)]
+    pub author: QueryUser,
     pub room: Uuid,
     pub status: MessageStatus,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, FromRow, Derivative)]
-pub struct SocketMessageSendContent {
-    pub room: Uuid,
-    pub content: String,
-    pub author: Author,
-}
-
-impl From<SocketMessageSendContent> for SocketMessageContent {
-    fn from(value: SocketMessageSendContent) -> Self {
-        SocketMessageContent {
+impl Message {
+    pub fn new(value: MessageRequest, author: QueryUser) -> Self {
+        Message {
             id: Uuid::new_v4(),
             content: value.content,
-            author: value.author,
+            author,
             room: value.room,
             status: MessageStatus::Sent,
             created_at: chrono::Utc::now(),
@@ -72,13 +58,20 @@ impl From<SocketMessageSendContent> for SocketMessageContent {
     }
 }
 
-impl fmt::Display for SocketMessageSendContent {
+#[derive(Serialize, Deserialize, Debug, Clone, FromRow, Derivative)]
+pub struct MessageRequest {
+    pub room: Uuid,
+    pub content: String,
+    pub author: Uuid,
+}
+
+impl fmt::Display for MessageRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Room: {}, Content: {}", self.room, self.content)
     }
 }
 
-impl fmt::Display for SocketMessageContent {
+impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

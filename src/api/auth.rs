@@ -14,11 +14,11 @@ use crate::{
         token::{encode_token, get_auth_header_pair, Claims},
     },
     errors::AppError,
-    sql::user::{get_user, insert_user, SessionUser, UserInput},
+    sql::users::{get_full_user, get_user, insert_user, QueryUser, SessionUser, UserInput},
     startup::AppState,
 };
 
-use crate::sql::user::User;
+use crate::sql::users::User;
 
 #[derive(Serialize, Deserialize)]
 pub struct SigninForm {
@@ -31,18 +31,15 @@ pub async fn sign_in(
     State(data): State<AppState>,
     Json(payload): Json<SigninForm>,
 ) -> Result<Response<String>, AppError> {
-    let user = get_user(&data.pool, &payload.email).await?;
+    let user = get_full_user(&data.pool, payload.email).await?;
 
     verify_password(Secret::new(payload.password), &user.password)?;
 
-    let session_user = SessionUser {
-        id: user.id,
-        email: &user.email,
-    };
-
     let ttl = configuration::get_configuration()?.token_max_age;
 
-    let token = encode_token(&Claims::new(&session_user, ttl))?;
+    let query_user = QueryUser::from(user);
+
+    let token = encode_token(&Claims::new(query_user, ttl))?;
 
     let auth_header_pair = get_auth_header_pair(token.clone());
 
@@ -77,7 +74,7 @@ pub async fn who_am_i(
     State(data): State<AppState>,
     claim: Claims,
 ) -> Result<impl IntoResponse, AppError> {
-    get_user(&data.pool, &claim.email)
+    get_user(&data.pool, &claim.sub)
         .await
         .map(|user| Json(user))
 }

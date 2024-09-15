@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::api::auth::{sign_in, sign_up, who_am_i};
+use crate::api::messages::get_messages;
 use crate::api::rooms::{create_room, get_rooms};
 use crate::api::users::update_user;
 use crate::configuration::RedisWorkerConfig;
@@ -60,6 +61,7 @@ pub async fn run(
 
     let api_routes = Router::new()
         .route("/rooms", get(get_rooms).post(create_room))
+        .route("/rooms/:id/messages", get(get_messages))
         .route("/users", put(update_user))
         .route("/auth/whoami", get(who_am_i))
         .route("/auth/signin", post(sign_in))

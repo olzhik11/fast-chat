@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     errors::{AppError, AppErrorType},
-    sql::user::SessionUser,
+    sql::users::QueryUser,
     startup::AppState,
 };
 
@@ -23,19 +23,19 @@ pub struct Claims {
     pub sub: Uuid,
     pub exp: i64,
     pub iat: i64,
-    pub email: String,
+    pub user: QueryUser,
 }
 
 impl Claims {
     // time to live, in minutes
-    pub fn new(session_user: &SessionUser, ttl: i64) -> Self {
+    pub fn new(user: QueryUser, ttl: i64) -> Self {
         let now = chrono::Utc::now();
 
         Self {
-            sub: session_user.id.into(),
+            sub: user.id.into(),
             exp: (now + chrono::Duration::minutes(ttl)).timestamp(),
             iat: now.timestamp(),
-            email: session_user.email.to_string(),
+            user,
         }
     }
 }
