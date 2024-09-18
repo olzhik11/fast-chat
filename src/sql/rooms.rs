@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
-use sqlx::{FromRow, PgPool};
+use sqlx::{FromRow, PgPool, QueryBuilder};
 use std::ops::DerefMut;
 use tracing::instrument;
 use uuid::Uuid;
 
-use crate::errors::{AppError, AppErrorType};
+use crate::{
+    api::{rooms::SearchParams, utils::SearchPaginatedResponse},
+    errors::{AppError, AppErrorType},
+};
 use derivative::{self, Derivative};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -15,7 +18,14 @@ pub struct RoomInput {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RoomsResponse {
-    pub rooms: Vec<Room>,
+    pub rooms: Vec<RoomEntity>,
+}
+
+#[derive(Serialize, Deserialize, Debug, FromRow)]
+pub struct RoomEntity {
+    #[sqlx(flatten)]
+    room: Room,
+    users_count: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Derivative, FromRow)]
@@ -99,13 +109,14 @@ pub async fn create_room(
 }
 
 #[instrument(name = "Getting rooms.", skip(pool))]
-pub async fn get_rooms(pool: &PgPool, id: Uuid) -> Result<Vec<Room>, AppError> {
-    sqlx::query_as::<_, Room>(
+pub async fn get_rooms(pool: &PgPool, id: Uuid) -> Result<Vec<RoomEntity>, AppError> {
+    sqlx::query_as::<_, RoomEntity>(
         r#"
-        SELECT r.id, r.name, r.description, r.created_at, r.updated_at
+        SELECT r.id, r.name, r.description, r.created_at, r.updated_at, COUNT(ru.user_id) as users_count
         FROM rooms r INNER JOIN room_users ru
         ON r.id = ru.room_id
         WHERE ru.user_id = $1
+        GROUP BY r.id
         "#,
     )
     .bind(id)
@@ -116,5 +127,82 @@ pub async fn get_rooms(pool: &PgPool, id: Uuid) -> Result<Vec<Room>, AppError> {
             "Get rooms error.".to_string(),
             AppErrorType::DatabaseError(e),
         )
+    })
+}
+
+#[instrument(name = "Searching rooms.", skip(pool))]
+pub async fn search_rooms(
+    pool: &PgPool,
+    user_id: Uuid,
+    params: SearchParams,
+) -> Result<SearchPaginatedResponse<RoomEntity>, AppError> {
+    let SearchParams {
+        query,
+        limit,
+        offset,
+    } = params;
+
+    let limit = limit.unwrap_or(20);
+    let offset = offset.unwrap_or(0);
+
+    let mut query_builder = QueryBuilder::new(
+        r#"
+        SELECT r.id, r.name, r.description, r.created_at, r.updated_at, COUNT(ru.user_id) as users_count
+        FROM rooms r INNER JOIN room_users ru
+        ON r.id = ru.room_id
+        WHERE ru.user_id = 
+        "#,
+    );
+
+    let mut count_query_builder = QueryBuilder::new(
+        r#"
+        SELECT COUNT(DISTINCT r.id)
+        FROM rooms r INNER JOIN room_users ru
+        ON r.id = ru.room_id
+        WHERE ru.user_id = 
+        "#,
+    );
+
+    count_query_builder.push_bind(user_id);
+
+    query_builder.push_bind(user_id);
+
+    if let Some(ref search_query) = query {
+        query_builder
+            .push("AND r.name ILIKE ")
+            .push_bind(search_query);
+        count_query_builder
+            .push("AND r.name ILIKE ")
+            .push_bind(search_query);
+    }
+
+    query_builder
+        .push(
+            r#"
+        GROUP BY r.id
+        ORDER BY r.created_at DESC
+        LIMIT
+        "#,
+        )
+        .push_bind(limit)
+        .push(" OFFSET ")
+        .push_bind(offset)
+        .push(";");
+
+    let total_count = count_query_builder
+        .build_query_scalar::<i64>()
+        .fetch_one(pool)
+        .await
+        .map_err(|e| AppError::new(e.to_string(), AppErrorType::DatabaseError(e)))?;
+
+    let rooms = query_builder
+        .build_query_as::<RoomEntity>()
+        .fetch_all(pool)
+        .await
+        .map_err(|e| AppError::new(e.to_string(), AppErrorType::DatabaseError(e)))?;
+
+    Ok(SearchPaginatedResponse {
+        data: rooms,
+        total_count,
     })
 }

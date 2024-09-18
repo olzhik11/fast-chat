@@ -1,7 +1,4 @@
-use crate::{
-    crypt::token::Claims,
-    errors::{AppError, AppErrorType},
-};
+use crate::errors::{AppError, AppErrorType};
 use sqlx::PgPool;
 use tracing::{instrument, Level};
 
@@ -50,7 +47,13 @@ pub struct QueryUser {
 
 impl From<User> for QueryUser {
     fn from(value: User) -> Self {
-        QueryUser { ..value.into() }
+        QueryUser {
+            id: value.id,
+            name: value.name,
+            email: value.email,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+        }
     }
 }
 

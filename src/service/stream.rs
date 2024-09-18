@@ -14,7 +14,7 @@ use crate::{
     errors::{AppError, AppErrorType},
     sql::{
         messages::{delete_messages, insert_message, mark_as_seen, update_message},
-        users::{self, QueryUser},
+        users::QueryUser,
     },
     ws::schema::{Message, MessageRequest},
 };
