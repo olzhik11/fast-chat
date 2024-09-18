@@ -18,9 +18,9 @@ use crate::api::messages::get_messages;
 use crate::api::rooms::{create_room, get_rooms, search_rooms};
 use crate::api::users::update_user;
 use crate::configuration::RedisWorkerConfig;
-use crate::db::collect_rooms;
+use crate::db::rooms::collect_rooms;
 use crate::errors::AppError;
-use crate::service::worker::RedisWorker;
+use crate::service::worker::EventsWorker;
 use crate::ws::ws::ws_handler;
 use axum::{
     routing::{get, post},
@@ -113,7 +113,7 @@ pub async fn run(
     };
 
     let background = async {
-        RedisWorker::new(redis.clone(), db_pool.clone(), redis_worker_config).spawn_worker()
+        EventsWorker::new(redis.clone(), db_pool.clone(), redis_worker_config).spawn()
     };
 
     join!(http, background);

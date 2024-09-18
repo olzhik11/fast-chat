@@ -1,5 +1,5 @@
 use crate::service::stream::{
-    AsyncEvent, EventRedisStream, ASYNC_EVENT_DELETE, ASYNC_EVENT_MARK_AS_SEEN, ASYNC_EVENT_SEND,
+    AsyncEvent, Stream, ASYNC_EVENT_DELETE, ASYNC_EVENT_MARK_AS_SEEN, ASYNC_EVENT_SEND,
     ASYNC_EVENT_UPDATE,
 };
 use crate::ws::schema::SocketMessage;
@@ -97,8 +97,8 @@ fn process_message(
                 let _ = tx.send(serde_json::to_vec(&SocketMessage::Send(message.clone())).unwrap());
 
                 tokio::spawn(async move {
-                    EventRedisStream::new(ASYNC_EVENT_SEND, redis_connection_manager)
-                        .add_to_stream(AsyncEvent::Send(message.clone(), claims.user))
+                    Stream::new(ASYNC_EVENT_SEND, redis_connection_manager)
+                        .add(AsyncEvent::Send(message.clone(), claims.user))
                         .await
                 });
             }
@@ -107,8 +107,8 @@ fn process_message(
                 // let _ tx.send(serde_json::to_vec())
 
                 tokio::spawn(async move {
-                    EventRedisStream::new(ASYNC_EVENT_MARK_AS_SEEN, redis_connection_manager)
-                        .add_to_stream(AsyncEvent::MarkAsSeen(ids.clone()))
+                    Stream::new(ASYNC_EVENT_MARK_AS_SEEN, redis_connection_manager)
+                        .add(AsyncEvent::MarkAsSeen(ids.clone()))
                         .await
                 });
             }
@@ -117,8 +117,8 @@ fn process_message(
                     tx.send(serde_json::to_vec(&SocketMessage::Update(message.clone())).unwrap());
 
                 tokio::spawn(async move {
-                    EventRedisStream::new(ASYNC_EVENT_UPDATE, redis_connection_manager)
-                        .add_to_stream(AsyncEvent::Update(message.clone()))
+                    Stream::new(ASYNC_EVENT_UPDATE, redis_connection_manager)
+                        .add(AsyncEvent::Update(message.clone()))
                         .await
                 });
             }
@@ -126,8 +126,8 @@ fn process_message(
                 let _ = tx.send(serde_json::to_vec(&SocketMessage::Delete(ids.clone())).unwrap());
 
                 tokio::spawn(async move {
-                    EventRedisStream::new(ASYNC_EVENT_DELETE, redis_connection_manager)
-                        .add_to_stream(AsyncEvent::Delete(ids.clone()))
+                    Stream::new(ASYNC_EVENT_DELETE, redis_connection_manager)
+                        .add(AsyncEvent::Delete(ids.clone()))
                         .await
                 });
             }

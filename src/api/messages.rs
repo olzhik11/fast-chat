@@ -6,7 +6,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{crypt::token::Claims, errors::AppError, sql, startup::AppState, ws::schema::Message};
+use crate::{crypt::token::Claims, errors::AppError, db, startup::AppState, ws::schema::Message};
 
 #[derive(Serialize, Deserialize)]
 struct MessagesResponse {
@@ -18,7 +18,7 @@ pub async fn get_messages(
     Path(id): Path<Uuid>,
     _claims: Claims,
 ) -> Result<impl IntoResponse, AppError> {
-    sql::messages::get_messages(&data.pool, id)
+    db::messages::get_messages(&data.pool, id)
         .await
         .map(|messages| Json(MessagesResponse { messages }))
 }

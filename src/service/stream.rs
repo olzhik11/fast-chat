@@ -7,12 +7,12 @@ use redis::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{postgres::PgQueryResult, PgPool};
-use tracing::info;
+use tracing::debug;
 use uuid::Uuid;
 
 use crate::{
     errors::{AppError, AppErrorType},
-    sql::{
+    db::{
         messages::{delete_messages, insert_message, mark_as_seen, update_message},
         users::QueryUser,
     },
@@ -76,29 +76,29 @@ impl AsyncEvent {
 
 // https://redis.io/glossary/redis-queue/
 #[derive(Clone)]
-pub struct EventRedisStream {
-    stream_key: String,
+pub struct Stream {
+    key: String,
     redis_connection_manager: ConnectionManager,
 }
 
 // stream_key is the name of AsyncEvent
-impl EventRedisStream {
-    pub fn new(stream_key: &str, redis_connection_manager: ConnectionManager) -> Self {
+impl Stream {
+    pub fn new(key: &str, redis_connection_manager: ConnectionManager) -> Self {
         Self {
-            stream_key: stream_key.into(),
+            key: key.into(),
             redis_connection_manager,
         }
     }
 
-    pub async fn add_to_stream(&mut self, event: AsyncEvent) -> Result<(), AppError> {
+    pub async fn add(&mut self, event: AsyncEvent) -> Result<(), AppError> {
         let args = event.into_tuple_array();
         let result = self
             .redis_connection_manager
-            .xadd(&self.stream_key, "*", args.as_slice())
+            .xadd(&self.key, "*", args.as_slice())
             .await
             .map_err(|e| {
                 AppError::new(
-                    format!("Stream read with key - {} failed.", self.stream_key),
+                    format!("Stream read with key - {} failed.", self.key),
                     AppErrorType::RedisError(e),
                 )
             })?;
@@ -106,10 +106,10 @@ impl EventRedisStream {
         Ok(result)
     }
 
-    pub async fn read_stream(&mut self) -> Result<Vec<(String, AsyncEvent)>, AppError> {
+    pub async fn read(&mut self) -> Result<Vec<(String, AsyncEvent)>, AppError> {
         let result: Option<StreamReadReply> = self
             .redis_connection_manager
-            .xread(&[&self.stream_key], &["0"])
+            .xread(&[&self.key], &["0"])
             .await
             .map_err(|e| {
                 AppError::new(
@@ -136,7 +136,7 @@ impl EventRedisStream {
                 }
             }
             None => {
-                info!("No values for stream {}", self.stream_key);
+                debug!("No values for stream {}", self.key);
             }
         };
 
@@ -160,7 +160,7 @@ impl EventRedisStream {
 
     pub async fn delete_events(&mut self, ids: Vec<String>) -> Result<(), AppError> {
         self.redis_connection_manager
-            .xdel(&self.stream_key, &ids)
+            .xdel(&self.key, &ids)
             .await
             .map_err(|e| AppError::new(e.to_string(), AppErrorType::RedisError(e)))?;
         Ok(())

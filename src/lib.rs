@@ -1,10 +1,9 @@
 pub mod api;
 pub mod configuration;
 pub mod crypt;
-pub mod db;
 pub mod errors;
 pub mod service;
-pub mod sql;
+pub mod db;
 pub mod startup;
 pub mod telemetry;
 pub mod ws;

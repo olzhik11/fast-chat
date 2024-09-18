@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     errors::{AppError, AppErrorType},
-    sql::users::QueryUser,
+    db::users::QueryUser,
     startup::AppState,
 };
 

@@ -14,11 +14,11 @@ use crate::{
         token::{encode_token, get_auth_header_pair, Claims},
     },
     errors::AppError,
-    sql::users::{get_full_user, get_user, insert_user, QueryUser, UserInput},
+    db::users::{get_full_user, get_user, insert_user, QueryUser, UserInput},
     startup::AppState,
 };
 
-use crate::sql::users::User;
+use crate::db::users::User;
 
 #[derive(Serialize, Deserialize)]
 pub struct SigninForm {

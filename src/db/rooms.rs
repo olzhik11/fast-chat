@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool, QueryBuilder};
-use std::ops::DerefMut;
+use tokio::sync::broadcast;
+use std::{collections::HashMap, ops::DerefMut};
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -205,4 +206,32 @@ pub async fn search_rooms(
         data: rooms,
         total_count,
     })
+}
+
+#[instrument(name = "Collecting rooms.", skip(pool))]
+pub async fn collect_rooms(
+    pool: &PgPool,
+) -> Result<HashMap<Uuid, broadcast::Sender<Vec<u8>>>, AppError> {
+    let map = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        SELECT id
+        FROM rooms
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        AppError::new(
+            "Failed to load rooms".to_string(),
+            AppErrorType::DatabaseError(e),
+        )
+    })?
+    .into_iter()
+    .map(|room| {
+        let (sender, _receiver) = broadcast::channel(1000);
+        (room, sender)
+    })
+    .collect::<HashMap<Uuid, broadcast::Sender<Vec<u8>>>>();
+
+    Ok(map)
 }
