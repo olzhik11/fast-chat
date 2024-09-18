@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Json, State},
+    extract::{Json, Query, State},
     response::IntoResponse,
 };
 
@@ -12,6 +12,8 @@ use crate::{
     },
     startup::AppState,
 };
+
+use crate::api::utils::SearchParams;
 
 pub async fn get_rooms(
     State(data): State<AppState>,
@@ -30,4 +32,14 @@ pub async fn create_room(
     sql::rooms::create_room(&data.pool, room, claims.sub)
         .await
         .map(|room| Json(room))
+}
+
+pub async fn search_rooms(
+    State(data): State<AppState>,
+    claims: Claims,
+    Query(params): Query<SearchParams>,
+) -> Result<impl IntoResponse, AppError> {
+    sql::rooms::search_rooms(&data.pool, claims.sub, params)
+        .await
+        .map(|result| Json(result))
 }

@@ -14,7 +14,7 @@ use crate::{
         token::{encode_token, get_auth_header_pair, Claims},
     },
     errors::AppError,
-    sql::users::{get_full_user, get_user, insert_user, QueryUser, SessionUser, UserInput},
+    sql::users::{get_full_user, get_user, insert_user, QueryUser, UserInput},
     startup::AppState,
 };
 

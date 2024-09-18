@@ -39,8 +39,8 @@ impl RedisWorker {
 
                     let events = match stream.read_stream().await {
                         Ok(events) => events,
-                        Err(e) => {
-                            error!("Error reading from stream: {:?}", e);
+                        Err(_) => {
+                            error!("Error reading from stream");
                             continue; // Skip processing if reading fails
                         }
                     };
@@ -56,7 +56,7 @@ impl RedisWorker {
                             Ok(_) => {
                                 cleanup_events.push(id);
                             }
-                            Err(e) => error!("Error processing event {}", e),
+                            Err(_) => error!("Error processing event"),
                         }
                     }
 
