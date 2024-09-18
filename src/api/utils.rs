@@ -11,3 +11,20 @@ impl<Model> SearchPaginatedResponse<Model> {
         Self { data, total_count }
     }
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SearchParams {
+    pub query: Option<String>,
+    pub limit: Option<i16>,
+    pub offset: Option<i16>,
+}
+
+impl Default for SearchParams {
+    fn default() -> Self {
+        SearchParams {
+            query: None,
+            limit: Some(20),
+            offset: Some(0),
+        }
+    }
+}

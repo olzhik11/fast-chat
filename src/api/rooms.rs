@@ -2,7 +2,6 @@ use axum::{
     extract::{Json, Query, State},
     response::IntoResponse,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     crypt::token::Claims,
@@ -14,22 +13,7 @@ use crate::{
     startup::AppState,
 };
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct SearchParams {
-    pub query: Option<String>,
-    pub limit: Option<i16>,
-    pub offset: Option<i16>,
-}
-
-impl Default for SearchParams {
-    fn default() -> Self {
-        SearchParams {
-            query: None,
-            limit: Some(20),
-            offset: Some(0),
-        }
-    }
-}
+use crate::api::utils::SearchParams;
 
 pub async fn get_rooms(
     State(data): State<AppState>,

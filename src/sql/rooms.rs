@@ -5,7 +5,7 @@ use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
-    api::{rooms::SearchParams, utils::SearchPaginatedResponse},
+    api::{utils::SearchParams, utils::SearchPaginatedResponse},
     errors::{AppError, AppErrorType},
 };
 use derivative::{self, Derivative};
