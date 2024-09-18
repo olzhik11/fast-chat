@@ -1,35 +1,35 @@
 use crate::configuration::{RedisEventConfig, RedisWorkerConfig};
-use log::info;
+use tracing::debug;
 use redis::aio::ConnectionManager;
 use sqlx::PgPool;
 use std::time::Duration;
 use tokio::time;
 use tracing::error;
 
-use super::stream::EventRedisStream;
+use super::stream::Stream;
 
-pub struct RedisWorker {
+pub struct EventsWorker {
     redis_connection_manager: ConnectionManager,
     db_pool: PgPool,
     config: RedisWorkerConfig,
 }
 
-impl RedisWorker {
+impl EventsWorker {
     pub fn new(
         redis_connection_manager: ConnectionManager,
         db_pool: PgPool,
         config: RedisWorkerConfig,
     ) -> Self {
-        RedisWorker {
+        EventsWorker {
             redis_connection_manager,
             db_pool,
             config,
         }
     }
 
-    pub fn spawn_worker(self) {
+    pub fn spawn(self) {
         for RedisEventConfig { key, interval } in self.config.task_config {
-            let mut stream = EventRedisStream::new(&key, self.redis_connection_manager.clone());
+            let mut stream = Stream::new(&key, self.redis_connection_manager.clone());
             let pg_pool = self.db_pool.clone();
             let mut interval = time::interval(Duration::from_secs(interval));
 
@@ -37,7 +37,7 @@ impl RedisWorker {
                 loop {
                     interval.tick().await;
 
-                    let events = match stream.read_stream().await {
+                    let events = match stream.read().await {
                         Ok(events) => events,
                         Err(_) => {
                             error!("Error reading from stream");
@@ -46,7 +46,7 @@ impl RedisWorker {
                     };
 
                     if events.is_empty() {
-                        info!("No events for stream {}", key);
+                        debug!("No events for stream {}", key);
                         continue; // Skip processing if no events
                     }
 

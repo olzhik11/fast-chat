@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
 use uuid::Uuid;
 
-use crate::sql::users::QueryUser;
+use crate::db::users::QueryUser;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
