@@ -3,7 +3,7 @@ use axum::{extract::State, response::IntoResponse, Json};
 
 pub async fn update_user(
     State(data): State<AppState>,
-    Json(user): Json<db::users::UserUpdate>,
+    Json(user): Json<db::users::schema::UserUpdate>,
 ) -> Result<impl IntoResponse, AppError> {
     db::users::update_user(&data.pool, user)
         .await

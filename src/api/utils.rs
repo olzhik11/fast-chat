@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+
+static PAGE_LIMIT: i16 = 20;
+static PAGE_OFFSET: i16 = 0;
+
 #[derive(Serialize, Deserialize)]
 pub struct SearchPaginatedResponse<Model> {
     pub data: Vec<Model>,
@@ -23,8 +27,8 @@ impl Default for SearchParams {
     fn default() -> Self {
         SearchParams {
             query: None,
-            limit: Some(20),
-            offset: Some(0),
+            limit: Some(PAGE_LIMIT),
+            offset: Some(PAGE_OFFSET),
         }
     }
 }

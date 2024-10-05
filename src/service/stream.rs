@@ -11,13 +11,17 @@ use tracing::debug;
 use uuid::Uuid;
 
 use crate::{
-    errors::{AppError, AppErrorType},
     db::{
-        messages::{delete_messages, insert_message, mark_as_seen, update_message},
-        users::QueryUser,
-    },
-    ws::schema::{Message, MessageRequest},
+        messages::{delete_messages, insert_message, mark_as_seen, schema::{Message, MessageRequest}, update_message},
+        users::schema::QueryUser,
+    }, errors::{AppError, AppErrorType}
 };
+
+pub static REDIS_ENTRY_VALUE: &str = "value";
+pub static ASYNC_EVENT_SEND: &str = "ASYNC_EVENT_SEND";
+pub static ASYNC_EVENT_UPDATE: &str = "ASYNC_EVENT_UPDATE";
+pub static ASYNC_EVENT_DELETE: &str = "ASYNC_EVENT_DELETE";
+pub static ASYNC_EVENT_MARK_AS_SEEN: &str = "ASYNC_EVENT_MARK_AS_SEEN";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum AsyncEvent {
@@ -45,12 +49,6 @@ impl fmt::Display for AsyncEvent {
         }
     }
 }
-
-pub static REDIS_ENTRY_VALUE: &str = "value";
-pub static ASYNC_EVENT_SEND: &str = "ASYNC_EVENT_SEND";
-pub static ASYNC_EVENT_UPDATE: &str = "ASYNC_EVENT_UPDATE";
-pub static ASYNC_EVENT_DELETE: &str = "ASYNC_EVENT_DELETE";
-pub static ASYNC_EVENT_MARK_AS_SEEN: &str = "ASYNC_EVENT_MARK_AS_SEEN";
 
 impl AsyncEvent {
     pub fn into_tuple_array(self) -> Vec<(&'static str, Vec<u8>)> {

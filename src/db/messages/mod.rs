@@ -1,13 +1,13 @@
+pub mod schema;
+
+use schema::{Message, MessageRequest, MessageStatus};
 use sqlx::{postgres::PgQueryResult, PgPool};
 use tracing::{instrument, Level};
 use uuid::Uuid;
 
-use crate::{
-    errors::{AppError, AppErrorType},
-    ws::schema::{Message, MessageRequest, MessageStatus},
-};
+use crate::errors::{AppError, AppErrorType};
 
-use super::users::QueryUser;
+use super::users::schema::QueryUser;
 
 #[instrument(name = "Send message", skip(pool), level = Level::INFO)]
 pub async fn insert_message(
@@ -120,3 +120,4 @@ pub async fn update_message(
         )
     })
 }
+

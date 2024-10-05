@@ -8,7 +8,7 @@ use crate::{
     errors::AppError,
     db::{
         self,
-        rooms::{RoomInput, RoomsResponse},
+        rooms::schema::{RoomInput, RoomsResponse},
     },
     startup::AppState,
 };

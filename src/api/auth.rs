@@ -14,11 +14,11 @@ use crate::{
         token::{encode_token, get_auth_header_pair, Claims},
     },
     errors::AppError,
-    db::users::{get_full_user, get_user, insert_user, QueryUser, UserInput},
+    db::users::{get_full_user, get_user, insert_user, schema::{QueryUser, UserInput}},
     startup::AppState,
 };
 
-use crate::db::users::User;
+use crate::db::users::schema::User;
 
 #[derive(Serialize, Deserialize)]
 pub struct SigninForm {
@@ -55,13 +55,8 @@ pub async fn sign_up(
     Json(payload): Json<UserInput>,
 ) -> Result<Response<String>, AppError> {
     // Validate user input
-    let user_input = UserInput::validate_user_input(payload)?;
-    let user = User {
-        name: user_input.name,
-        email: user_input.email,
-        password: user_input.password,
-        ..Default::default()
-    };
+    let parsed_user = UserInput::parse_user_input(payload)?;
+    let user = User::from(parsed_user);
 
     insert_user(&data.pool, user).await.map(|_| {
         Response::builder()
