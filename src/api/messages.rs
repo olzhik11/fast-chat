@@ -6,7 +6,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{crypt::token::Claims, errors::AppError, db, startup::AppState, ws::schema::Message};
+use crate::{crypt::token::Claims, db::{self, messages::schema::Message}, errors::AppError, startup::AppState};
 
 #[derive(Serialize, Deserialize)]
 struct MessagesResponse {

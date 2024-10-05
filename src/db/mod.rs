@@ -1,6 +1,5 @@
 use futures_util::TryFutureExt;
 use sqlx::PgPool;
-
 use crate::errors::{AppError, AppErrorType};
 
 pub mod messages;

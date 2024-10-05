@@ -1,11 +1,11 @@
 use std::fmt;
 
-use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
 use uuid::Uuid;
 
-use crate::db::users::QueryUser;
+use crate::db::users::schema::QueryUser;
+
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
@@ -58,7 +58,7 @@ impl Message {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, FromRow, Derivative)]
+#[derive(Serialize, Deserialize, Debug, Clone, FromRow)]
 pub struct MessageRequest {
     pub room: Uuid,
     pub content: String,

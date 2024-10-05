@@ -1,8 +1,8 @@
+use crate::db::messages::schema::SocketMessage;
 use crate::service::stream::{
     AsyncEvent, Stream, ASYNC_EVENT_DELETE, ASYNC_EVENT_MARK_AS_SEEN, ASYNC_EVENT_SEND,
     ASYNC_EVENT_UPDATE,
 };
-use crate::ws::schema::SocketMessage;
 use crate::{crypt::token::Claims, errors::AppError, startup::AppState};
 use axum::extract::ws::Message;
 use axum::{

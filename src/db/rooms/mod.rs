@@ -1,5 +1,7 @@
-use serde::{Deserialize, Serialize};
-use sqlx::{FromRow, PgPool, QueryBuilder};
+pub mod schema;
+
+use schema::{Room, RoomEntity, RoomInput};
+use sqlx::{PgPool, QueryBuilder};
 use tokio::sync::broadcast;
 use std::{collections::HashMap, ops::DerefMut};
 use tracing::instrument;
@@ -9,38 +11,8 @@ use crate::{
     api::{utils::SearchParams, utils::SearchPaginatedResponse},
     errors::{AppError, AppErrorType},
 };
-use derivative::{self, Derivative};
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct RoomInput {
-    pub name: String,
-    pub description: String,
-}
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct RoomsResponse {
-    pub rooms: Vec<RoomEntity>,
-}
-
-#[derive(Serialize, Deserialize, Debug, FromRow)]
-pub struct RoomEntity {
-    #[sqlx(flatten)]
-    room: Room,
-    users_count: i64,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Derivative, FromRow)]
-#[derivative(Default)]
-pub struct Room {
-    #[derivative(Default(value = "Uuid::new_v4()"))]
-    pub id: Uuid,
-    pub name: String,
-    pub description: String,
-    #[derivative(Default(value = "chrono::Utc::now()"))]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    #[derivative(Default(value = "chrono::Utc::now()"))]
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-}
 
 #[instrument(name = "Creating a new room.", skip(pool))]
 pub async fn create_room(
@@ -55,11 +27,7 @@ pub async fn create_room(
         )
     })?;
 
-    let room = Room {
-        name: room_input.name,
-        description: room_input.description,
-        ..Default::default()
-    };
+    let room = Room::from(room_input);
 
     let new_room = sqlx::query_as::<_, Room>(
         r#"
